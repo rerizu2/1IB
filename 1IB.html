@@ -1,0 +1,749 @@
+"<!DOCTYPE html>
+<html lang=""ja"">
+<head>
+    <meta charset=""UTF-8"">
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <title>ランダム席替えアプリ</title>
+    <!-- Tailwind CSS CDNを読み込み -->
+    <script src=""https://cdn.tailwindcss.com""></script>
+    <!-- Google Fonts - Interを読み込み -->
+    <link href=""https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap"" rel=""stylesheet"">
+    <style>
+        /* 全体のスタイル */
+        body {
+            font-family: 'Inter', sans-serif; /* フォントをInterに設定 */
+            background-color: #f0f4f8; /* 薄い青灰色の背景 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* ビューポートの高さに合わせて最小高さを設定 */
+            margin: 0;
+            overflow: hidden; /* スクロールバーを非表示 */
+        }
+        /* アプリコンテナのスタイル */
+        #app-container {
+            background-color: #ffffff; /* 白い背景 */
+            border-radius: 1.5rem; /* 角を丸くする */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* 柔らかな影 */
+            padding: 2rem;
+            max-width: 95vw; /* レスポンシブな最大幅 */
+            width: 1200px; /* デスクトップでの最大幅を広げる */
+            display: flex; /* flexboxを使用 */
+            flex-direction: column; /* デフォルトは縦並び */
+            align-items: center;
+            gap: 1.5rem; /* 要素間のスペース */
+            box-sizing: border-box; /* パディングとボーダーを幅に含める */
+            position: relative; /* モーダル配置の基準 */
+        }
+
+        /* コンテンツエリア (座席表と名簿票を横並びにする部分) */
+        #content-area {
+            display: flex;
+            flex-direction: column; /* モバイルでは縦並び */
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        @media (min-width: 768px) { /* デスクトップでは横並び */
+            #content-area {
+                flex-direction: row;
+                justify-content: center;
+                align-items: flex-start; /* 上揃え */
+            }
+        }
+
+        /* キャンバスコンテナのスタイル */
+        #canvas-container {
+            flex-grow: 1; /* 残りのスペースを埋める */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 0; /* flexアイテムの最小幅 */
+        }
+
+        /* キャンバスのスタイル */
+        canvas {
+            border: 2px solid #cbd5e1; /* 薄いボーダー */
+            border-radius: 0.75rem; /* 角を丸くする */
+            background-color: #e2e8f0; /* 薄い灰色の背景 */
+            display: block;
+            touch-action: none; /* キャンバス上でのブラウザのタッチアクションを防止 */
+            max-width: 100%; /* 親コンテナに合わせて最大幅を設定 */
+            height: auto; /* 高さは自動調整 */
+        }
+
+        /* 名簿票コンテナのスタイル */
+        #roster-container {
+            width: 100%; /* モバイルでは全幅 */
+            max-width: 300px; /* デスクトップでの最大幅 */
+            background-color: #f8fafc; /* 非常に薄い灰色 */
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* 名簿リストのスタイル */
+        #roster-list {
+            max-height: 400px; /* 高さを制限してスクロール可能にする */
+            overflow-y: auto; /* 垂直スクロール */
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            background-color: #ffffff;
+        }
+
+        /* 名簿リストアイテムのスタイル */
+        .roster-item {
+            display: flex;
+            align-items: center;
+            padding: 0.4rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+            font-size: 0.95rem;
+            color: #334155; /* 濃い灰色 */
+            font-weight: 500;
+        }
+        .roster-item:last-child {
+            border-bottom: none; /* 最後の子要素のボーダーを削除 */
+        }
+        .roster-item input[type=""checkbox""] {
+            margin-right: 0.75rem;
+            width: 1.25rem; /* チェックボックスのサイズ */
+            height: 1.25rem;
+            border-radius: 0.25rem;
+            border: 1px solid #94a3b8;
+            cursor: pointer;
+            flex-shrink: 0; /* 縮小させない */
+        }
+
+        /* コントロールパネルのスタイル */
+        .control-panel {
+            display: flex;
+            gap: 1rem; /* ボタン間のスペース */
+            flex-wrap: wrap; /* ボタンが多すぎるときに折り返す */
+            justify-content: center;
+        }
+        /* ボタンの共通スタイル */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out; /* ホバー時のアニメーション */
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: none;
+            outline: none;
+        }
+        /* プライマリーボタンのスタイル */
+        .btn-primary {
+            background-image: linear-gradient(to right, #6366f1, #8b5cf6); /* 紫のグラデーション */
+            color: white;
+        }
+        .btn-primary:hover {
+            background-image: linear-gradient(to right, #4f46e5, #7c3aed);
+            transform: translateY(-2px); /* わずかに上に移動 */
+        }
+        /* セカンダリーボタンのスタイル */
+        .btn-secondary {
+            background-color: #f1f5f9; /* 薄い灰色 */
+            color: #475569; /* 濃い灰色のテキスト */
+        }
+        .btn-secondary:hover {
+            background-color: #e2e8f0;
+            transform: translateY(-2px); /* わずかに上に移動 */
+        }
+        /* メッセージ表示エリアのスタイル */
+        #message-area {
+            min-height: 1.5rem;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        /* モーダル背景 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100; /* 最前面に表示 */
+        }
+
+        /* モーダル内容 */
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-width: 300px;
+            max-width: 90vw;
+        }
+
+        /* レスポンシブ調整 (モバイル向け) */
+        @media (max-width: 768px) {
+            #app-container {
+                padding: 1rem;
+                border-radius: 1rem;
+                gap: 1rem;
+            }
+            .btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+            #roster-container {
+                padding: 1rem;
+            }
+            #roster-list {
+                max-height: 250px; /* モバイルでは高さを少し低く */
+            }
+            .modal-content {
+                padding: 1.5rem;
+                gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id=""app-container"">
+        <h1 class=""text-3xl font-bold text-center text-gray-800"">席替え抽選アプリ</h1>
+        <div id=""message-area"" class=""text-center"">「席替え開始！」ボタンを押してください。</div>
+        
+        <div id=""content-area"">
+            <div id=""canvas-container"">
+                <canvas id=""seatCanvas""></canvas>
+            </div>
+
+            <div id=""roster-container"">
+                <h2 class=""text-xl font-semibold text-gray-700 text-center"">生徒名簿</h2>
+                <div id=""roster-list"">
+                    <!-- 生徒名簿がここに動的に生成されます -->
+                </div>
+            </div>
+        </div>
+
+        <div class=""control-panel"">
+            <button id=""startButton"" class=""btn btn-primary"">席替え開始！</button>
+            <button id=""resetButton"" class=""btn btn-secondary"">リセット</button>
+        </div>
+
+        <!-- 手動割り当て用モーダルダイアログ -->
+        <div id=""manualAssignModal"" class=""modal-overlay hidden"">
+            <div class=""modal-content"">
+                <h3 class=""text-xl font-semibold text-gray-800"">席に名前を割り当てる</h3>
+                <input type=""text"" id=""manualNameInput"" class=""p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"" placeholder=""生徒名を入力"">
+                <div class=""flex justify-end gap-3"">
+                    <button id=""clearManualNameBtn"" class=""btn btn-secondary"">クリア</button>
+                    <button id=""setManualNameBtn"" class=""btn btn-primary"">設定</button>
+                    <button id=""cancelManualNameBtn"" class=""btn btn-secondary"">キャンセル</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 生徒の一覧 (オブジェクト形式でcheckedプロパティを追加)
+        let studentData = [
+            { name: '網干', checked: false }, { name: '井上', checked: false }, { name: '上野', checked: false },
+            { name: '楳田', checked: false }, { name: '江川', checked: false }, { name: '大川', checked: false },
+            { name: '大下', checked: false }, { name: '太田', checked: false }, { name: '大本', checked: false },
+            { name: '岡本', checked: false }, { name: '奥田', checked: false }, { name: '上村', checked: false },
+            { name: '川股', checked: false }, { name: '木村', checked: false }, { name: '黒川', checked: false },
+            { name: '小林', checked: false }, { name: '大門', checked: false }, { name: '髙木', checked: false },
+            { name: '武田', checked: false }, { name: '武智', checked: false }, { name: '橘', checked: false },
+            { name: '千田', checked: false }, { name: '東川', checked: false }, { name: '鳥谷', checked: false },
+            { name: '中井', checked: false }, { name: '中尾', checked: false }, { name: '中島', checked: false },
+            { name: '永瀬', checked: false }, { name: '中野', checked: false }, { name: '西尾', checked: false },
+            { name: '西田', checked: false }, { name: '西野', checked: false }, { name: '橋本', checked: false },
+            { name: '東田', checked: false }, { name: '廣岡', checked: false }, { name: '枡田', checked: false },
+            { name: '松村', checked: false }, { name: '山本', checked: false }
+        ];
+
+        let canvas, ctx;
+        let seats = []; // 席のデータ配列
+        let finalSeatAssignments = new Map(); // 最終的な席の割り当て (seatId -> studentName)
+        let animationIndex = 0; // アニメーションで現在処理中の席のインデックス
+        let animationInterval; // アニメーションのsetTimeout ID
+        let currentClickedSeatId = -1; // 右クリックされた席のIDを保持
+
+        // 教室のレイアウト設定
+        const outerColNumRows = 5; // 両端の列の行数
+        const innerColNumRows = 7; // 中央の列の行数
+        const totalColumns = 6; // 全体の列数
+        const maxRows = innerColNumRows; // アスペクト比計算に使用する最大行数
+        const totalStudents = studentData.length; // 生徒数 (38名)
+
+        // 席の色設定
+        const seatColors = {
+            default: '#94a3b8', // 未割り当ての席のデフォルト色 (Slate 400)
+            assigned: '#60a5fa', // 割り当て済みの席の色 (Blue 400)
+            highlight: '#a78bfa', // アニメーション中のハイライト色 (Purple 400)
+            fixed: '#ef4444' // 手動で固定された席の色 (Red 500)
+        };
+
+        // 優先席のIDを格納する配列 (前2列の席)
+        let frontRowSeatIds = [];
+        let otherSeatIds = [];
+
+        // アプリの初期化関数
+        function init() {
+            canvas = document.getElementById('seatCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas(); // キャンバスのサイズを初期設定
+            renderRoster(); // 名簿票を初期表示
+
+            // 各種ボタンにイベントリスナーを設定
+            document.getElementById('startButton').addEventListener('click', startShuffle);
+            document.getElementById('resetButton').addEventListener('click', resetSeats);
+
+            // モーダル関連の要素とイベントリスナー
+            const manualAssignModal = document.getElementById('manualAssignModal');
+            const manualNameInput = document.getElementById('manualNameInput');
+            const setManualNameBtn = document.getElementById('setManualNameBtn');
+            const clearManualNameBtn = document.getElementById('clearManualNameBtn');
+            const cancelManualNameBtn = document.getElementById('cancelManualNameBtn');
+
+            // キャンバスの右クリックイベント
+            canvas.addEventListener('contextmenu', (e) => {
+                e.preventDefault(); // デフォルトの右クリックメニューを非表示にする
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // クリックされた席を特定
+                const clickedSeat = seats.find(seat =>
+                    mouseX >= seat.x && mouseX <= seat.x + seat.width &&
+                    mouseY >= seat.y && mouseY <= seat.y + seat.height
+                );
+
+                if (clickedSeat) {
+                    currentClickedSeatId = clickedSeat.id;
+                    manualNameInput.value = clickedSeat.manualName || ''; // 既に名前があれば表示
+                    manualAssignModal.classList.remove('hidden'); // モーダルを表示
+                    manualNameInput.focus(); // 入力フィールドにフォーカス
+                }
+            });
+
+            // モーダル内のボタンイベント
+            setManualNameBtn.addEventListener('click', () => {
+                if (currentClickedSeatId !== -1) {
+                    const enteredName = manualNameInput.value.trim();
+                    const seat = seats[currentClickedSeatId];
+                    if (enteredName) {
+                        seat.manualName = enteredName;
+                        seat.studentName = enteredName; // すぐに表示されるように
+                        seat.isAssigned = true;
+                        seat.isFixed = true;
+                    } else { // 入力が空の場合はクリアとみなす
+                        seat.manualName = null;
+                        seat.studentName = null;
+                        seat.isAssigned = false;
+                        seat.isFixed = false;
+                    }
+                    drawSeats(); // キャンバスを再描画
+                    manualAssignModal.classList.add('hidden'); // モーダルを非表示
+                }
+            });
+
+            clearManualNameBtn.addEventListener('click', () => {
+                if (currentClickedSeatId !== -1) {
+                    const seat = seats[currentClickedSeatId];
+                    seat.manualName = null;
+                    seat.studentName = null;
+                    seat.isAssigned = false;
+                    seat.isFixed = false;
+                    drawSeats(); // キャンバスを再描画
+                    manualAssignModal.classList.add('hidden'); // モーダルを非表示
+                }
+            });
+
+            cancelManualNameBtn.addEventListener('click', () => {
+                manualAssignModal.classList.add('hidden'); // モーダルを非表示
+            });
+
+             // モーダル表示時にEscキーで閉じる
+             manualAssignModal.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    manualAssignModal.classList.add('hidden');
+                }
+            });
+        }
+
+        // キャンバスのサイズを調整する関数
+        function resizeCanvas() {
+            const canvasContainer = document.getElementById('canvas-container');
+            // コンテナの幅に合わせてキャンバスの最大幅を設定
+            let calculatedCanvasWidth = canvasContainer.clientWidth;
+
+            // 縦横比を考慮して高さを計算
+            const aspectRatio = totalColumns / maxRows; // 例: 6 / 7
+            let calculatedCanvasHeight = calculatedCanvasWidth / aspectRatio;
+
+            // 最大サイズ制限
+            const maxOverallCanvasWidth = 900;
+            const maxOverallCanvasHeight = 700;
+
+            if (calculatedCanvasWidth > maxOverallCanvasWidth) {
+                calculatedCanvasWidth = maxOverallCanvasWidth;
+                calculatedCanvasHeight = calculatedCanvasWidth / aspectRatio;
+            }
+            if (calculatedCanvasHeight > maxOverallCanvasHeight) {
+                calculatedCanvasHeight = maxOverallCanvasHeight;
+                calculatedCanvasWidth = calculatedCanvasHeight * aspectRatio;
+            }
+
+            // 最小幅も考慮
+            if (calculatedCanvasWidth < 300) {
+                 calculatedCanvasWidth = 300;
+                 calculatedCanvasHeight = calculatedCanvasWidth / aspectRatio;
+            }
+
+
+            canvas.width = calculatedCanvasWidth;
+            canvas.height = calculatedCanvasHeight;
+
+            createSeats();
+            drawSeats();
+        }
+
+        // 席データを生成する関数
+        function createSeats() {
+            seats = [];
+            frontRowSeatIds = [];
+            otherSeatIds = [];
+
+            const canvasWidth = canvas.width;
+            const canvasHeight = canvas.height;
+
+            const seatMarginX = canvasWidth * 0.02;
+            const seatMarginY = canvasHeight * 0.02;
+            const availableWidth = canvasWidth - (2 * seatMarginX);
+            const availableHeight = canvasHeight - (2 * seatMarginY);
+
+            const seatPadding = 0.9;
+
+            const seatWidth = (availableWidth / totalColumns);
+
+            const outerColumnSeatHeight = (availableHeight / outerColNumRows);
+            const innerColumnSeatHeight = (availableHeight / innerColNumRows);
+
+            let seatIdCounter = 0;
+
+            for (let col = 0; col < totalColumns; col++) {
+                let currentRowCount;
+                let currentSeatHeight;
+                let startYOffset = 0;
+
+                if (col === 0 || col === totalColumns - 1) {
+                    currentRowCount = outerColNumRows;
+                    currentSeatHeight = outerColumnSeatHeight;
+                    startYOffset = (availableHeight - (currentSeatHeight * outerColNumRows)) / 2;
+                } else {
+                    currentRowCount = innerColNumRows;
+                    currentSeatHeight = innerColumnSeatHeight;
+                    startYOffset = 0;
+                }
+
+                for (let row = 0; row < currentRowCount; row++) {
+                    const x = seatMarginX + col * seatWidth + (seatWidth * (1 - seatPadding) / 2);
+                    const y = seatMarginY + startYOffset + row * currentSeatHeight + (currentSeatHeight * (1 - seatPadding) / 2);
+                    const w = seatWidth * seatPadding;
+                    const h = currentSeatHeight * seatPadding;
+
+                    // 既存のmanualNameとisFixedを保持するためのロジック
+                    const existingSeat = seats.find(s => s.id === seatIdCounter);
+                    const manualName = existingSeat ? existingSeat.manualName : null;
+                    const isFixed = existingSeat ? existingSeat.isFixed : false;
+                    const studentName = isFixed ? manualName : null; // 固定されていればmanualNameを、そうでなければnull
+
+                    const newSeat = {
+                        id: seatIdCounter,
+                        row: row,
+                        col: col,
+                        x: x,
+                        y: y,
+                        width: w,
+                        height: h,
+                        studentName: studentName,
+                        manualName: manualName, // 手動で割り当てられた名前
+                        isAssigned: isFixed, // 初期描画時に割り当て済みとして扱うか
+                        isFixed: isFixed // 手動で固定された席かどうかのフラグ
+                    };
+                    seats.push(newSeat);
+
+                    if (row < 2) {
+                        frontRowSeatIds.push(newSeat.id);
+                    } else {
+                        otherSeatIds.push(newSeat.id);
+                    }
+                    seatIdCounter++;
+                }
+            }
+        }
+
+        // 配列をシャッフルする (Fisher-Yatesアルゴリズム)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 全ての席を描画する関数
+        function drawSeats() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 黒板の描画
+            const blackboardWidth = canvas.width * 0.6;
+            const blackboardHeight = canvas.height * 0.08;
+            const blackboardX = (canvas.width - blackboardWidth) / 2;
+            const blackboardY = canvas.height * 0.01;
+
+            ctx.fillStyle = '#4a4a4a';
+            ctx.fillRect(blackboardX, blackboardY, blackboardWidth, blackboardHeight);
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(blackboardX, blackboardY, blackboardWidth, blackboardHeight);
+
+            ctx.fillStyle = '#ecf0f1';
+            ctx.font = `${Math.min(blackboardHeight * 0.6, 30)}px 'Inter', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('黒板', canvas.width / 2, blackboardY + blackboardHeight / 2);
+
+            // 各席の描画
+            seats.forEach((seat) => {
+                drawSingleSeat(seat);
+            });
+        }
+
+        // 個別の席を描画する関数
+        function drawSingleSeat(seat, highlight = false) {
+            ctx.beginPath();
+            ctx.roundRect(seat.x, seat.y, seat.width, seat.height, 10);
+
+            // 固定席の場合は専用の色、アニメーション中はハイライト色、それ以外は割り当て済みかデフォルト色
+            if (seat.isFixed) {
+                ctx.fillStyle = seatColors.fixed;
+            } else if (highlight) {
+                ctx.fillStyle = seatColors.highlight;
+            } else {
+                ctx.fillStyle = seat.isAssigned ? seatColors.assigned : seatColors.default;
+            }
+
+            ctx.fill();
+            ctx.strokeStyle = '#718096';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#fff';
+            ctx.font = `${Math.min(seat.width * 0.15, seat.height * 0.15, 20)}px 'Inter', sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(seat.id + 1, seat.x + seat.width / 2, seat.y + 5);
+
+            if (seat.studentName) {
+                ctx.fillStyle = '#fff';
+                ctx.font = `${Math.min(seat.width * 0.25, seat.height * 0.25, 28)}px 'Inter', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(seat.studentName, seat.x + seat.width / 2, seat.y + seat.height / 2 + 10);
+            }
+        }
+
+        // 名簿票をレンダリングする関数
+        function renderRoster() {
+            const rosterListDiv = document.getElementById('roster-list');
+            rosterListDiv.innerHTML = '';
+
+            studentData.forEach((student, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'roster-item';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `student-${index}`;
+                checkbox.checked = student.checked;
+                checkbox.addEventListener('change', (e) => {
+                    student.checked = e.target.checked;
+                });
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = student.name;
+
+                itemDiv.appendChild(checkbox);
+                itemDiv.appendChild(nameSpan);
+                rosterListDiv.appendChild(itemDiv);
+            });
+        }
+
+        // 席替え開始ボタンがクリックされた時の処理
+        function startShuffle() {
+            if (animationInterval) return;
+
+            document.getElementById('startButton').disabled = true;
+            document.getElementById('resetButton').disabled = true;
+            document.getElementById('message-area').textContent = '席替え中...しばらくお待ちください！';
+
+            // 最終的な割り当てマップをクリア
+            finalSeatAssignments = new Map();
+
+            // 1. 固定席とその生徒を特定し、最終割り当てに追加
+            const fixedStudentNames = new Set();
+            seats.forEach(seat => {
+                if (seat.isFixed) {
+                    finalSeatAssignments.set(seat.id, seat.manualName);
+                    fixedStudentNames.add(seat.manualName);
+                }
+                // アニメーションのために一旦割り当てをリセット (固定席以外)
+                seat.studentName = seat.isFixed ? seat.manualName : null;
+                seat.isAssigned = seat.isFixed;
+            });
+            drawSeats(); // 固定席のみ描画された状態で開始
+
+
+            // 2. シャッフル対象の生徒を特定 (固定されていない生徒)
+            const studentsForShuffle = studentData.filter(s => !fixedStudentNames.has(s.name));
+            const checkedStudentsForShuffle = studentsForShuffle.filter(s => s.checked).map(s => s.name);
+            const uncheckedStudentsForShuffle = studentsForShuffle.filter(s => !s.checked).map(s => s.name);
+
+            // 3. シャッフル対象の席を特定 (固定されていない席)
+            let availableFrontRowSeatIds = [];
+            let availableOtherSeatIds = [];
+            seats.forEach(seat => {
+                if (!seat.isFixed) {
+                    if (seat.row < 2) { // 前2列の席
+                        availableFrontRowSeatIds.push(seat.id);
+                    } else { // その他の席
+                        availableOtherSeatIds.push(seat.id);
+                    }
+                }
+            });
+
+            // 席IDリストをシャッフル
+            const shuffledAvailableFrontRowSeatIds = shuffleArray([...availableFrontRowSeatIds]);
+            const shuffledAvailableOtherSeatIds = shuffleArray([...availableOtherSeatIds]);
+
+            // 生徒リストをシャッフル
+            const shuffledCheckedStudents = shuffleArray([...checkedStudentsForShuffle]);
+            const shuffledUncheckedStudents = shuffleArray([...uncheckedStudentsForShuffle]);
+
+            // 4. ランダム割り当て用の仮マップ
+            const tempRandomAssignments = new Map();
+            let remainingStudentsToAssign = [];
+            let remainingSeatsToAssign = [];
+
+            // 優先生徒を優先席に割り当てる
+            let currentFrontSeatIdx = 0;
+            for (let i = 0; i < shuffledCheckedStudents.length; i++) {
+                if (currentFrontSeatIdx < shuffledAvailableFrontRowSeatIds.length) {
+                    tempRandomAssignments.set(shuffledAvailableFrontRowSeatIds[currentFrontSeatIdx], shuffledCheckedStudents[i]);
+                    currentFrontSeatIdx++;
+                } else {
+                    remainingStudentsToAssign.push(shuffledCheckedStudents[i]);
+                }
+            }
+            // 優先席の残りを`remainingSeatsToAssign`に追加
+            remainingSeatsToAssign.push(...shuffledAvailableFrontRowSeatIds.slice(currentFrontSeatIdx));
+
+            // 残りの生徒と席を結合
+            remainingStudentsToAssign.push(...shuffledUncheckedStudents);
+            remainingSeatsToAssign.push(...shuffledAvailableOtherSeatIds);
+
+            // 残りをシャッフルして割り当て
+            const finalStudentsToAssign = shuffleArray(remainingStudentsToAssign);
+            const finalSeatsToAssign = shuffleArray(remainingSeatsToAssign);
+
+            for (let i = 0; i < finalStudentsToAssign.length; i++) {
+                if (i < finalSeatsToAssign.length) {
+                    tempRandomAssignments.set(finalSeatsToAssign[i], finalStudentsToAssign[i]);
+                }
+            }
+            
+            // 最終的な割り当てマップを構築 (固定席 + ランダム割り当て)
+            // 固定席以外の席にランダム割り当てを適用
+            seats.forEach(seat => {
+                if (!seat.isFixed) {
+                    const assignedName = tempRandomAssignments.get(seat.id);
+                    if (assignedName) {
+                        finalSeatAssignments.set(seat.id, assignedName);
+                    } else {
+                        // ランダム割り当ての対象外になった席は空にする
+                        finalSeatAssignments.delete(seat.id);
+                    }
+                }
+            });
+
+
+            animationIndex = 0;
+            animateAssignment();
+        }
+
+        // 席替えアニメーションを実行する関数
+        function animateAssignment() {
+            if (animationIndex < seats.length) {
+                const currentSeat = seats[animationIndex];
+                const studentName = finalSeatAssignments.get(currentSeat.id);
+
+                // 固定席はアニメーション中にハイライトしない
+                if (!currentSeat.isFixed) {
+                    drawSingleSeat(currentSeat, true); // ハイライト表示
+                } else {
+                    drawSingleSeat(currentSeat); // 固定席は常に固定色で描画
+                }
+
+
+                setTimeout(() => {
+                    currentSeat.studentName = studentName;
+                    currentSeat.isAssigned = !!studentName; // 名前があれば割り当て済み
+                    drawSeats(); // 全体を再描画
+
+                    animationIndex++;
+                    animationInterval = setTimeout(animateAssignment, 100);
+                }, 80);
+            } else {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                document.getElementById('message-area').textContent = '席替えが完了しました！';
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('resetButton').disabled = false;
+            }
+        }
+
+        // リセットボタンがクリックされた時の処理
+        function resetSeats() {
+            clearInterval(animationInterval);
+            animationInterval = null;
+            seats.forEach(seat => {
+                seat.studentName = null;
+                seat.manualName = null; // 手動割り当て名もクリア
+                seat.isAssigned = false;
+                seat.isFixed = false; // 固定フラグもクリア
+            });
+            drawSeats();
+            studentData.forEach(s => s.checked = false);
+            renderRoster();
+
+            document.getElementById('startButton').disabled = false;
+            document.getElementById('resetButton').disabled = false;
+            document.getElementById('message-area').textContent = '「席替え開始！」ボタンを押してください。';
+        }
+
+        // ウィンドウが完全にロードされたら初期化関数を実行
+        window.onload = init;
+        // ウィンドウサイズが変更されたらキャンバスをリサイズ
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
+"
