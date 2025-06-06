@@ -1,13 +1,15 @@
-"<!DOCTYPE html>
-<html lang=""ja"">
+<!DOCTYPE html>
+<html lang="ja">
 <head>
-    <meta charset=""UTF-8"">
-    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ランダム席替えアプリ</title>
     <!-- Tailwind CSS CDNを読み込み -->
-    <script src=""https://cdn.tailwindcss.com""></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Interを読み込み -->
-    <link href=""https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap"" rel=""stylesheet"">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap" rel="stylesheet">
+    <!-- html2canvasライブラリを読み込み (スクリーンショット用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         /* 全体のスタイル */
         body {
@@ -109,7 +111,7 @@
         .roster-item:last-child {
             border-bottom: none; /* 最後の子要素のボーダーを削除 */
         }
-        .roster-item input[type=""checkbox""] {
+        .roster-item input[type="checkbox"] {
             margin-right: 0.75rem;
             width: 1.25rem; /* チェックボックスのサイズ */
             height: 1.25rem;
@@ -189,6 +191,32 @@
             max-width: 90vw;
         }
 
+        /* スクリーンショットエリアのスタイル */
+        #screenshot-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 1rem;
+            background-color: #f8fafc;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 900px;
+        }
+        #screenshot-img {
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-width: 100%;
+            height: auto;
+            object-fit: contain; /* 画像が歪まないように */
+            max-height: 400px; /* ある程度の高さを制限 */
+        }
+
+
         /* レスポンシブ調整 (モバイル向け) */
         @media (max-width: 768px) {
             #app-container {
@@ -210,43 +238,53 @@
                 padding: 1.5rem;
                 gap: 1rem;
             }
+            #screenshot-area {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div id=""app-container"">
-        <h1 class=""text-3xl font-bold text-center text-gray-800"">席替え抽選アプリ</h1>
-        <div id=""message-area"" class=""text-center"">「席替え開始！」ボタンを押してください。</div>
+    <div id="app-container">
+        <h1 class="text-3xl font-bold text-center text-gray-800">席替え抽選アプリ</h1>
+        <div id="message-area" class="text-center">「席替え開始！」ボタンを押してください。</div>
         
-        <div id=""content-area"">
-            <div id=""canvas-container"">
-                <canvas id=""seatCanvas""></canvas>
+        <div id="content-area">
+            <div id="canvas-container">
+                <canvas id="seatCanvas"></canvas>
             </div>
 
-            <div id=""roster-container"">
-                <h2 class=""text-xl font-semibold text-gray-700 text-center"">生徒名簿</h2>
-                <div id=""roster-list"">
+            <div id="roster-container">
+                <h2 class="text-xl font-semibold text-gray-700 text-center">生徒名簿</h2>
+                <div id="roster-list">
                     <!-- 生徒名簿がここに動的に生成されます -->
                 </div>
             </div>
         </div>
 
-        <div class=""control-panel"">
-            <button id=""startButton"" class=""btn btn-primary"">席替え開始！</button>
-            <button id=""resetButton"" class=""btn btn-secondary"">リセット</button>
+        <div class="control-panel">
+            <button id="startButton" class="btn btn-primary">席替え開始！</button>
+            <button id="resetButton" class="btn btn-secondary">リセット</button>
         </div>
 
         <!-- 手動割り当て用モーダルダイアログ -->
-        <div id=""manualAssignModal"" class=""modal-overlay hidden"">
-            <div class=""modal-content"">
-                <h3 class=""text-xl font-semibold text-gray-800"">席に名前を割り当てる</h3>
-                <input type=""text"" id=""manualNameInput"" class=""p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg"" placeholder=""生徒名を入力"">
-                <div class=""flex justify-end gap-3"">
-                    <button id=""clearManualNameBtn"" class=""btn btn-secondary"">クリア</button>
-                    <button id=""setManualNameBtn"" class=""btn btn-primary"">設定</button>
-                    <button id=""cancelManualNameBtn"" class=""btn btn-secondary"">キャンセル</button>
+        <div id="manualAssignModal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3 class="text-xl font-semibold text-gray-800">席に名前を割り当てる</h3>
+                <input type="text" id="manualNameInput" class="p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-lg" placeholder="生徒名を入力">
+                <div class="flex justify-end gap-3">
+                    <button id="clearManualNameBtn" class="btn btn-secondary">クリア</button>
+                    <button id="setManualNameBtn" class="btn btn-primary">設定</button>
+                    <button id="cancelManualNameBtn" class="btn btn-secondary">キャンセル</button>
                 </div>
             </div>
+        </div>
+
+        <!-- スクリーンショット表示エリア -->
+        <div id="screenshot-area" class="hidden">
+            <h3 class="text-xl font-semibold text-gray-700">完成した座席表</h3>
+            <img id="screenshot-img" alt="完成した座席表のスクリーンショット">
+            <a id="downloadScreenshotBtn" class="btn btn-primary">スクリーンショットをダウンロード</a>
         </div>
     </div>
 
@@ -714,9 +752,24 @@
             } else {
                 clearInterval(animationInterval);
                 animationInterval = null;
-                document.getElementById('message-area').textContent = '席替えが完了しました！';
-                document.getElementById('startButton').disabled = false;
-                document.getElementById('resetButton').disabled = false;
+                document.getElementById('message-area').textContent = '席替えが完了しました！スクリーンショットを撮っています...';
+
+                // スクリーンショットを撮る
+                html2canvas(canvas).then(function(screenshotCanvas) {
+                    const screenshotImg = document.getElementById('screenshot-img');
+                    const downloadScreenshotBtn = document.getElementById('downloadScreenshotBtn');
+                    const screenshotArea = document.getElementById('screenshot-area');
+
+                    screenshotImg.src = screenshotCanvas.toDataURL('image/png');
+                    downloadScreenshotBtn.href = screenshotCanvas.toDataURL('image/png');
+                    downloadScreenshotBtn.download = 'seat_assignment_result.png'; // ダウンロード時のファイル名
+
+                    screenshotArea.classList.remove('hidden'); // スクリーンショット表示エリアを表示
+                    document.getElementById('message-area').textContent = '席替えが完了しました！'; // メッセージを更新
+
+                    document.getElementById('startButton').disabled = false;
+                    document.getElementById('resetButton').disabled = false;
+                });
             }
         }
 
@@ -734,6 +787,12 @@
             studentData.forEach(s => s.checked = false);
             renderRoster();
 
+            // スクリーンショットエリアを非表示にし、画像をクリア
+            const screenshotArea = document.getElementById('screenshot-area');
+            screenshotArea.classList.add('hidden');
+            document.getElementById('screenshot-img').src = '';
+            document.getElementById('downloadScreenshotBtn').href = '#';
+
             document.getElementById('startButton').disabled = false;
             document.getElementById('resetButton').disabled = false;
             document.getElementById('message-area').textContent = '「席替え開始！」ボタンを押してください。';
@@ -746,4 +805,3 @@
     </script>
 </body>
 </html>
-"
