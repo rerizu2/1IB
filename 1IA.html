@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>席替えアプリ - チェック優先＆固定席対応</title>
+<style>
+  /* Reset & base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0; padding: 0;
+    font-family: "Noto Sans JP", sans-serif;
+    background: #f4f7f9;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background-color: #3a86ff;
+    color: white;
+    padding: 20px 0;
+    text-align: center;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
+  }
+  header h1 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.8rem;
+  }
+  header p {
+    margin: 6px 0 0;
+    font-weight: 400;
+    font-size: 1rem;
+  }
+
+  main {
+    flex-grow: 1;
+    max-width: 1000px;
+    margin: 40px auto 60px;
+    padding: 0 15px;
+    display: flex;
+    gap: 30px;
+  }
+
+  /* 生徒リスト部分 */
+  #memberList {
+    width: 220px;
+    background: white;
+    padding: 16px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.1);
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  #memberList h2 {
+    margin-top: 0;
+    font-size: 1.3rem;
+    color: #3a86ff;
+    border-bottom: 2px solid #3a86ff;
+    padding-bottom: 6px;
+  }
+  #memberList label {
+    display: flex;
+    align-items: center;
+    margin: 6px 0;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #memberList input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px; height: 16px;
+    cursor: pointer;
+  }
+
+  /* 席表部分 */
+  .seat-area {
+    flex-grow: 1;
+  }
+
+  .btn-primary {
+    background-color: #3a86ff;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgb(58 134 255 / 0.4);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    user-select: none;
+    margin-bottom: 12px;
+  }
+  .btn-primary:hover {
+    background-color: #265dcc;
+    box-shadow: 0 6px 12px rgb(38 93 204 / 0.6);
+  }
+
+  .seat-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+  }
+
+  .seat {
+    background-color: #e0f2ff;
+    border-radius: 8px;
+    box-shadow: 0 3px 5px rgb(0 0 0 / 0.12);
+    height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 14px;
+    color: #004d99;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+    user-select: none;
+  }
+  .seat:hover {
+    background-color: #b9e0ff;
+    box-shadow: 0 6px 10px rgb(0 77 153 / 0.4);
+  }
+
+  .seat.fixed {
+    background-color: #fff4cc;
+    color: #996600;
+    font-weight: 700;
+    box-shadow: 0 6px 12px rgb(153 102 0 / 0.6);
+  }
+
+  .empty {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    cursor: default;
+  }
+
+  footer {
+    background-color: #3a86ff;
+    color: white;
+    padding: 15px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 400;
+    box-shadow: 0 -2px 6px rgb(0 0 0 / 0.15);
+  }
+
+  /* モバイル調整 */
+  @media (max-width: 768px) {
+    main {
+      flex-direction: column;
+      max-width: 480px;
+      margin: 20px auto 40px;
+    }
+    #memberList {
+      width: 100%;
+      max-height: none;
+      margin-bottom: 20px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>席替えアプリ</h1>
+  <p>名前固定・チェック選択優先で席替えを行います</p>
+</header>
+
+<main>
+  <!-- 生徒リスト -->
+  <aside id="memberList" aria-label="生徒リスト">
+    <h2>生徒リスト（チェックで前方優先）</h2>
+    <!-- チェックボックスはJSで生成 -->
+  </aside>
+
+  <!-- 席表エリア -->
+  <section class="seat-area" aria-label="席替え座席表">
+    <button class="btn-primary" onclick="shuffleSeats()">席替えする（固定席は変わらず）</button>
+    <div class="seat-grid" id="seatGrid"></div>
+  </section>
+</main>
+
+<footer>
+  &copy; 2025 クラス管理システム
+</footer>
+
+<script>
+  const members = [
+    "網干", "井上", "上野", "楳田", "江川", "大川", "大下", "太田", "大本", "岡本",
+    "奥田", "上村", "川股", "木村", "黒川", "小林", "大門", "髙木", "武田", "武智",
+    "橘", "千田", "東川", "鳥谷", "中井", "中尾", "中島", "永瀬", "中野", "西尾",
+    "西田", "西野", "橋本", "東田", "廣岡", "枡田", "松村", "山本"
+  ];
+
+  const seatMap = [
+    [0, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1],
+    [1, 1, 1, 1, 1, 1],
+    [0, 1, 1, 1, 1, 0],
+  ];
+
+  const fixedNames = {}; // { "r,c": "名前" }
+
+  // チェックされた生徒を記録
+  let checkedMembers = new Set();
+
+  // 生徒リストを動的生成
+  function buildMemberList() {
+    const container = document.getElementById('memberList');
+    container.innerHTML = '<h2>生徒リスト（チェックで前方優先）</h2>';
+
+    members.forEach((name) => {
+      const label = document.createElement('label');
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = name;
+      checkbox.addEventListener('change', (e) => {
+        if(e.target.checked){
+          checkedMembers.add(e.target.value);
+        } else {
+          checkedMembers.delete(e.target.value);
+        }
+      });
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(name));
+      container.appendChild(label);
+    });
+  }
+
+  function shuffleSeats() {
+    const seatGrid = document.getElementById('seatGrid');
+    seatGrid.innerHTML = '';
+
+    // 座席座標一覧を作成
+    const seatPositions = [];
+    seatMap.forEach((row, r) => {
+      row.forEach((cell, c) => {
+        if(cell === 1) seatPositions.push([r,c]);
+      });
+    });
+
+    // 固定名のキー一覧
+    const fixedKeys = Object.keys(fixedNames);
+
+    // 固定済み以外の席を抽出
+    const freeSeats = seatPositions.filter(([r,c]) => !fixedKeys.includes(`${r},${c}`));
+
+    // 固定名で使われている名前
+    const usedNames = Object.values(fixedNames);
+
+    // チェックされた生徒（まだ固定されていないもの）
+    const checkedUnfixed = Array.from(checkedMembers).filter(n => !usedNames.includes(n));
+
+    // チェックなしの残り生徒（固定されていないかつチェックもない）
+    const others = members.filter(n => !usedNames.includes(n) && !checkedMembers.has(n));
+
+    // 前方優先：チェックあり生徒を先に割り当てるため、freeSeatsを前から割り当てる
+    const priorityNames = checkedUnfixed.concat(others);
+
+    // ランダムシャッフルは優先以外の生徒だけにする
+    // ここは「others」のみランダムにして優先名はそのまま
+    const shuffledOthers = others.sort(() => Math.random() - 0.5);
+    const finalAssign = checkedUnfixed.concat(shuffledOthers);
+
+    let assignIndex = 0;
+
+    seatMap.forEach((row, r) => {
+      row.forEach((cell, c) => {
+        const div = document.createElement('div');
+
+        if(cell === 1){
+          const key = `${r},${c}`;
+          div.className = 'seat';
+
+          if(fixedNames[key]){
+            // 固定席は固定名そのまま表示
+            div.textContent = fixedNames[key];
+            div.classList.add('fixed');
+          } else {
+            // 優先の名前順に割当
+            if(assignIndex < finalAssign.length){
+              div.textContent = finalAssign[assignIndex];
+              assignIndex++;
+            } else {
+              div.textContent = '';
+              div.classList.add('empty');
+            }
+          }
+          div.tabIndex = 0;
+          div.setAttribute('data-row', r);
+          div.setAttribute('data-col', c);
+          div.title = "クリックで名前を設定（固定）";
+
+          // クリックで名前固定の入力モーダル表示
+          div.addEventListener('click', onSeatClick);
+
+          seatGrid.appendChild(div);
+        } else {
+          const divEmpty = document.createElement('div');
+          divEmpty.className = 'empty';
+          seatGrid.appendChild(divEmpty);
+        }
+      });
+    });
+  }
+
+  // 名前固定用プロンプト
+  function onSeatClick(e) {
+    const seat = e.currentTarget;
+    const r = seat.getAttribute('data-row');
+    const c = seat.getAttribute('data-col');
+    const key = `${r},${c}`;
+
+    let currentName = fixedNames[key] || '';
+    const input = prompt('この席の名前を入力（キャンセルで解除）:', currentName);
+
+    if(input === null){
+      // キャンセルしたら解除しない
+      return;
+    }
+    const trimmed = input.trim();
+
+    if(trimmed === ''){
+      // 空文字なら固定解除
+      delete fixedNames[key];
+      alert('固定席を解除しました。');
+    } else if(!members.includes(trimmed)){
+      alert('生徒リストにない名前です。正確に入力してください。');
+      return;
+    } else {
+      // 重複固定防止：他の席に同じ名前固定があれば解除
+      for(const k in fixedNames){
+        if(fixedNames[k] === trimmed && k !== key){
+          delete fixedNames[k];
+        }
+      }
+      fixedNames[key] = trimmed;
+      alert(`${trimmed} さんの席を固定しました。`);
+    }
+
+    shuffleSeats();
+  }
+
+  // 初期化処理
+  function init() {
+    buildMemberList();
+    shuffleSeats();
+  }
+
+  window.onload = init;
+</script>
+
+</body>
+</html>
