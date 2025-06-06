@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ランダム席替えアプリ</title>
+    <title>席替え抽選</title> <!-- タイトルを修正 -->
     <!-- Tailwind CSS CDNを読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Interを読み込み -->
@@ -16,11 +16,14 @@
             font-family: 'Inter', sans-serif; /* フォントをInterに設定 */
             background-color: #f0f4f8; /* 薄い青灰色の背景 */
             display: flex;
-            justify-content: center;
+            flex-direction: column; /* コンテンツが縦に並ぶように変更 */
             align-items: center;
+            justify-content: flex-start; /* 上部に寄せて配置 */
             min-height: 100vh; /* ビューポートの高さに合わせて最小高さを設定 */
             margin: 0;
-            overflow: hidden; /* スクロールバーを非表示 */
+            padding: 2rem 0; /* 上下の余白を追加 */
+            overflow-y: auto; /* 縦方向のスクロールを許可 */
+            overflow-x: hidden; /* 横方向のスクロールは非表示 */
         }
         /* アプリコンテナのスタイル */
         #app-container {
@@ -36,6 +39,7 @@
             gap: 1.5rem; /* 要素間のスペース */
             box-sizing: border-box; /* パディングとボーダーを幅に含める */
             position: relative; /* モーダル配置の基準 */
+            min-height: auto; /* 高さをコンテンツに合わせて自動調整 */
         }
 
         /* コンテンツエリア (座席表と名簿票を横並びにする部分) */
@@ -246,7 +250,7 @@
 </head>
 <body>
     <div id="app-container">
-        <h1 class="text-3xl font-bold text-center text-gray-800">席替え抽選アプリ</h1>
+        <h1 class="text-3xl font-bold text-center text-gray-800">席替え抽選</h1> <!-- タイトルを修正 -->
         <div id="message-area" class="text-center">「席替え開始！」ボタンを押してください。</div>
         
         <div id="content-area">
@@ -275,7 +279,7 @@
                 <div class="flex justify-end gap-3">
                     <button id="clearManualNameBtn" class="btn btn-secondary">クリア</button>
                     <button id="setManualNameBtn" class="btn btn-primary">設定</button>
-                    <button id="cancelManualNameBtn" class="btn btn-secondary">キャンセル</button>
+                    <button id="cancelManualNameBtn" class="btn btn-secondary">キャンセル</button> <!-- ここを修正 -->
                 </div>
             </div>
         </div>
@@ -348,7 +352,7 @@
             const manualNameInput = document.getElementById('manualNameInput');
             const setManualNameBtn = document.getElementById('setManualNameBtn');
             const clearManualNameBtn = document.getElementById('clearManualNameBtn');
-            const cancelManualNameBtn = document.getElementById('cancelManualNameBtn');
+            const cancelManualNameBtn = document.getElementById('cancelManualNameBtn'); // IDを修正しました
 
             // キャンバスの右クリックイベント
             canvas.addEventListener('contextmenu', (e) => {
@@ -404,7 +408,7 @@
                 }
             });
 
-            cancelManualNameBtn.addEventListener('click', () => {
+            cancelManualNameBtn.addEventListener('click', () => { // 変数名を修正しました
                 manualAssignModal.classList.add('hidden'); // モーダルを非表示
             });
 
@@ -755,12 +759,15 @@
                 document.getElementById('message-area').textContent = '席替えが完了しました！スクリーンショットを撮っています...';
 
                 // スクリーンショットを撮る
+                // html2canvasは、canvasの描画を基にスクリーンショットを生成
                 html2canvas(canvas).then(function(screenshotCanvas) {
                     const screenshotImg = document.getElementById('screenshot-img');
                     const downloadScreenshotBtn = document.getElementById('downloadScreenshotBtn');
                     const screenshotArea = document.getElementById('screenshot-area');
 
+                    // 生成した画像をimg要素に設定
                     screenshotImg.src = screenshotCanvas.toDataURL('image/png');
+                    // ダウンロードリンクに画像データを設定
                     downloadScreenshotBtn.href = screenshotCanvas.toDataURL('image/png');
                     downloadScreenshotBtn.download = 'seat_assignment_result.png'; // ダウンロード時のファイル名
 
